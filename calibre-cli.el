@@ -24,26 +24,36 @@
 ;; SQLite support is not available.
 
 ;;; Code:
+(require 'compat) ; for string-split
 (require 'calibre)
 (require 'calibre-book)
 (require 'calibre-util)
 
+(declare-function json-parse-buffer (&rest args) "json.c")
+
+(defun calibre-cli--list (&rest fields)
+  "List books in the active library.
+If FIELDS is a list of metadata fields to list, if none are
+specified the default is \\='all\\='."
+  (with-temp-buffer
+    (apply #'call-process
+           `(,calibre-calibredb-executable
+             nil
+             t
+             nil
+             "--with-library"
+             ,(calibre--library)
+             "list"
+             ,@(if fields
+                (flatten-list (mapcar (lambda (f) `("-f" ,f)) fields))
+                '("-f" "all"))
+             "--for-machine"))
+    (goto-char (point-min))
+    (json-parse-buffer :object-type 'alist :array-type 'list)))
+
 (defun calibre-cli--get-books ()
   "Return all books in the Calibre library `calibre-library-dir'."
-  (let ((json (with-temp-buffer
-                (call-process calibre-calibredb-executable
-                              nil
-                              t
-                              nil
-                              "list"
-                              "--with-library"
-                              (calibre--library)
-                              "-f"
-                              "all"
-                              "--for-machine")
-                (goto-char (point-min))
-                (json-parse-buffer :object-type 'alist :array-type 'list))))
-    (mapcar #'calibre-cli--make-book json)))
+  (mapcar #'calibre-cli--make-book (calibre-cli--list)))
 
 (defun calibre-cli--make-book (json)
   "Make a `calibre-book' from JSON."
@@ -65,7 +75,7 @@
 (defun calibre-cli--parse-authors (authors)
   "Parse AUTHORS a string, into a list of authors.
 AUTHORS should be a comma separated string."
-  (string-split authors ","))
+  (string-split authors " & "))
 
 (defun calibre-cli--parse-timestamp (timestamp)
   "Parse TIMESTAMP into a Lisp timestamp."
@@ -104,11 +114,58 @@ AUTHORS should be a comma separated string."
                 (buffer-substring-no-properties (point-min) (point-max))
                 ",")))))
 
+(calibre-cli--search-operation title)
 (calibre-cli--search-operation series)
 (calibre-cli--search-operation publisher)
 (calibre-cli--search-operation format)
 (calibre-cli--search-operation tag)
 (calibre-cli--search-operation author)
+
+(defun calibre-cli--get-titles ()
+  "Return a list of the titles in the active library."
+  (cl-remove-duplicates
+   (mapcar (lambda (b)
+             (alist-get 'title b))
+           (calibre-cli--list "title"))
+   :test #'string=))
+
+(defun calibre-cli--get-authors ()
+  "Return a list of the authors in the active library."
+  (cl-remove-duplicates
+   (cl-reduce #'cl-union (mapcar (lambda (b)
+                                  (calibre-cli--parse-authors (alist-get 'authors b)))
+                                 (calibre-cli--list "authors")))
+   :test #'string=))
+
+(defun calibre-cli--get-publishers ()
+  "Return a list of the publishers in the active library."
+  (remq nil (cl-remove-duplicates
+             (mapcar (lambda (b)
+                       (alist-get 'publisher b))
+                     (calibre-cli--list "publisher"))
+             :test #'string=)))
+
+(defun calibre-cli--get-series ()
+  "Return a list of the series in the active library."
+  (remq nil (cl-remove-duplicates
+             (mapcar (lambda (b)
+                       (alist-get 'series b))
+                     (calibre-cli--list "series"))
+             :test #'string=)))
+
+(defun calibre-cli--get-tags ()
+  "Return a list of the tags in the active library."
+  (cl-remove-duplicates
+   (cl-reduce #'cl-union (mapcar (lambda (b)
+                                  (alist-get 'tags b))
+                                 (calibre-cli--list "tags")))
+   :test #'string=))
+
+(defun calibre-cli--get-formats ()
+  "Return a list of the file formats stored in the active library."
+  (cl-reduce #'cl-union (mapcar (lambda (b)
+                                  (calibre-cli--parse-formats (alist-get 'formats b)))
+                                (calibre-cli--list "formats"))))
 
 (provide 'calibre-cli)
 ;;; calibre-cli.el ends here
