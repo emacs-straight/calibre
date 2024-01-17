@@ -9,7 +9,7 @@ This manual is for calibre.el (version @value{VERSION},
 @value{UPDATED}), a package for interacting with Calibre libraries from
 Emacs.
 
-Copyright @copyright{} 2023  Free Software Foundation, Inc.
+Copyright @copyright{} 2023,2024  Free Software Foundation, Inc.
 
 @quotation
 Permission is granted to copy, distribute and/or modify this document
@@ -114,17 +114,27 @@ Customization,,,Emacs}, or Emacs 29's @code{setopt}
 
 @node Reading books
 @section Reading books
-To read a book simply press @kbd{@key{RET}}
 @findex calibre-library-open-book
 @findex calibre-library-open-book-other-window
+To read a book simply press @kbd{@key{RET}}
 (@code{calibre-library-open-book}) with point on a particular book in
 the @file{*Library*} buffer.  This will open a new buffer containing the
 book at point in the current window.  Alternatively you can also press
 @kbd{o} (@code{calibre-library-open-book-other-window}), which will open
-the book in a different window.  To actually read a book Emacs must of
-course be able to display the file format in which the book is stored,
-which may require the presence of additional tools on your system
-@xref{Document View,,,Emacs}.
+the book in a different window.
+
+@findex calibre-library-open-book-external
+@vindex calibre-external-formats
+To actually read a book Emacs must of course be able to display the file
+format in which the book is stored, which may require the presence of
+additional tools on your system @xref{Document View,,,Emacs}.  If Emacs
+is not able to display your chosen format, or you simply prefer using
+another program, you can also open the book in an external program using
+@code{calibre-library-open-book-external} or customize
+@code{calibre-external-formats}.  If an entry for a particular format
+exists en @code{calibre-external-formats}
+@code{calibre-library-open-book} will use the specified program instead
+of opening the file in Emacs.
 
 @menu
 * Choosing formats::
@@ -231,12 +241,24 @@ it must be one of:
 @end itemize
 @var{VALUE} is the string to compare @var{FIELD} to.
 
+@cindex fuzzy filter
+For a given book to match against a basic filter the value of
+@var{FIELD} for that book must be exactly equal to @var{VALUE}.
+Sometimes this exact matching is undesirable and you would like to find
+all books where @var{FIELD} contains @var{VALUE} instead.  This is
+exactly what fuzzy filters do.
+
+A fuzzy filter is a vector @code{[@var{OP} @var{FIELD} @var{VALUE} ~]}.
+@var{OP}, @var{FIELD}, and @var{VALUE} have the same meaning as in a
+basic filter.  The @code{~} is what identifies the filter as fuzzy.
+
 @cindex composite filter
-A composite filter, which is a vector @code{[@var{OP} @var{FILTERS}]}.
+A composite filter, is a vector @code{[@var{OP} @var{FILTERS}]} where
 @var{OP} has the same meaning as for basic filters and @var{FILTERS} is
-a list of vectors @code{[@var{FIELD} @var{FILTERS}]}.  In each such
-vector @var{FIELD} and @var{VALUE} have the same meaning as for a basic
-filter.
+a list of vectors @code{[@var{FIELD} @var{VALUE}]} or @code{[@var{FIELD}
+@var{VALUE} ~]}.  In each such vector @var{FIELD} and @var{VALUE} have
+the same meaning as for a basic filter and a @code{~} at the end marks
+that particular component as fuzzy.
 
 @node Modifying your library
 @chapter Modifying your library

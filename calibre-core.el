@@ -1,6 +1,6 @@
 ;;; calibre-core.el --- Abstract interface for the Calibre Library  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2023  Free Software Foundation, Inc.
+;; Copyright (C) 2023,2024  Free Software Foundation, Inc.
 
 ;; This file is part of calibre.el.
 
@@ -198,9 +198,9 @@ BOOK is a `calibre-book'."
   "Return the path to BOOK in FORMAT."
   (let ((path (calibre-book-path book))
         (file-name (calibre-book-file-name book)))
-    (file-name-concat (calibre--library)
-                      path
-                      (format "%s.%s" file-name format))))
+    (expand-file-name (file-name-concat (calibre--library)
+                                        path
+                                        (format "%s.%s" file-name format)))))
 
 (defun calibre-composite-filter-p (object)
   "Return t if OBJECT is a composite filter."
@@ -219,14 +219,15 @@ BOOK is a `calibre-book'."
                    (if (eq op '+)
                        '()
                      (calibre--books))))
-    (seq-let (_ field value) filter
-      (cl-case field
-        (title (calibre-core--interface get-title-books value))
-        (author (calibre-core--interface get-author-books value))
-        (tag (calibre-core--interface get-tag-books value))
-        (publisher (calibre-core--interface get-publisher-books value))
-        (series (calibre-core--interface get-series-books value))
-        (format (calibre-core--interface get-format-books value))))))
+    (seq-let (_ field value &rest params) filter
+      (let ((fuzzy-match (seq-contains-p params '~)))
+        (cl-case field
+        (title (calibre-core--interface get-title-books value fuzzy-match))
+        (author (calibre-core--interface get-author-books value fuzzy-match))
+        (tag (calibre-core--interface get-tag-books value fuzzy-match))
+        (publisher (calibre-core--interface get-publisher-books value fuzzy-match))
+        (series (calibre-core--interface get-series-books value fuzzy-match))
+        (format (calibre-core--interface get-format-books value fuzzy-match)))))))
 
 (defun calibre-library--filter (filters books)
   "Return those books in BOOKS that match FILTERS.
